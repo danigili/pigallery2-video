@@ -2,9 +2,8 @@
 import * as sharp from 'sharp';
 import {Metadata, Sharp, SharpOptions} from 'sharp';
 import {Logger} from '../../Logger';
-import {FfmpegCommand, FfprobeData} from 'fluent-ffmpeg';
+import {FfmpegCommand, FfprobeData, FfprobeStream} from 'fluent-ffmpeg';
 import {FFmpegFactory} from '../FFmpegFactory';
-import * as path from 'path';
 import {ExtensionDecorator} from '../extension/ExtensionDecorator';
 
 
@@ -67,66 +66,115 @@ export interface SvgRendererInput extends RendererInput {
 }
 
 export class VideoRendererFactory {
+  // PQ (HDR10, Dolby Vision) and HLG (iPhone, Android phones) transfer characteristics
+  private static readonly HDR_TRANSFERS = ['smpte2084', 'arib-std-b67'];
+  // values that ffprobe reports and zscale also understands
+  private static readonly ZSCALE_PRIMARIES = ['bt709', 'bt2020', 'smpte432'];
+  private static readonly ZSCALE_MATRICES = ['bt709', 'bt2020nc', 'bt2020c'];
+  // BT.2408 HDR reference white (cd/m2). Maps the HDR diffuse white to SDR white
+  private static readonly HDR_REFERENCE_WHITE = 203;
+
+  private static toneMappingSupported: Promise<boolean> = null;
+
   public static build(): (input: MediaRendererInput) => Promise<void> {
     const ffmpeg = FFmpegFactory.get();
-    return (input: MediaRendererInput): Promise<void> => {
-      return new Promise((resolve, reject): void => {
-        Logger.silly('[FFmpeg] rendering thumbnail: ' + input.mediaPath);
+    return async (input: MediaRendererInput): Promise<void> => {
+      Logger.silly('[FFmpeg] rendering thumbnail: ' + input.mediaPath);
 
-        ffmpeg(input.mediaPath).ffprobe((err: Error, data: FfprobeData): void => {
-          if (!!err || data === null) {
-            return reject('[FFmpeg] ' + err.toString());
+      const data = await new Promise<FfprobeData>((resolve, reject): void => {
+        ffmpeg(input.mediaPath).ffprobe((err: Error, d: FfprobeData): void => {
+          if (!!err || !d) {
+            return reject('[FFmpeg] ' + err?.toString());
           }
-
-          let width = null;
-          let height = null;
-          for (const stream of data.streams) {
-            if (stream.width && stream.height && !isNaN(stream.width) && !isNaN(stream.height)) {
-              width = stream.width;
-              height = stream.height;
-              break;
-            }
-          }
-          if (!width || !height || isNaN(width) || isNaN(height)) {
-            return reject(`[FFmpeg] Can not read video dimension. Found: ${{width}}x${{height}}`);
-          }
-          const command: FfmpegCommand = ffmpeg(input.mediaPath);
-          const fileName = path.basename(input.outPath);
-          const folder = path.dirname(input.outPath);
-          let executedCmd = '';
-          command
-            .on('start', (cmd): void => {
-              executedCmd = cmd;
-            })
-            .on('end', (): void => {
-              resolve();
-            })
-            .on('error', (e): void => {
-              reject('[FFmpeg] ' + e.toString() + ' executed: ' + executedCmd);
-            })
-            .outputOptions(['-qscale:v 50']);
-          if (input.makeSquare === false) {
-            const newSize =
-              width < height
-                ? Math.min(input.size, width) + 'x?'
-                : '?x' + Math.min(input.size, height);
-            command.takeScreenshots({
-              timemarks: ['10%'],
-              size: newSize,
-              filename: fileName,
-              folder,
-            });
-          } else {
-            command.takeScreenshots({
-              timemarks: ['10%'],
-              size: input.size + 'x' + input.size,
-              filename: fileName,
-              folder,
-            });
-          }
+          resolve(d);
         });
       });
+
+      const stream = data.streams.find((s) =>
+        s.width && s.height && !isNaN(s.width) && !isNaN(s.height));
+      if (!stream) {
+        throw new Error('[FFmpeg] Can not read video dimension. ' + input.mediaPath);
+      }
+
+      let duration = Number(stream.duration);
+      if (isNaN(duration)) {
+        duration = Number(data.format?.duration);
+      }
+      const seekTime = isNaN(duration) ? 0 : duration * 0.1;
+
+      // scale before tone mapping, so the costly float conversion runs on the small frame
+      const filters = [VideoRendererFactory.getScaleFilter(input, stream.width, stream.height)];
+      if (VideoRendererFactory.isHDR(stream)) {
+        if (await VideoRendererFactory.isToneMappingSupported(ffmpeg)) {
+          filters.push(...VideoRendererFactory.getToneMappingFilters(stream));
+        } else {
+          Logger.warn('[FFmpeg] HDR video found, but ffmpeg has no zscale/tonemap filter (needs libzimg). Thumbnail will look washed out: ' + input.mediaPath);
+        }
+      }
+
+      await new Promise<void>((resolve, reject): void => {
+        const command: FfmpegCommand = ffmpeg(input.mediaPath);
+        let executedCmd = '';
+        command
+          .on('start', (cmd): void => {
+            executedCmd = cmd;
+          })
+          .on('end', (): void => {
+            resolve();
+          })
+          .on('error', (e): void => {
+            reject('[FFmpeg] ' + e.toString() + ' executed: ' + executedCmd);
+          })
+          .seekInput(seekTime)
+          .videoFilters(filters)
+          .frames(1)
+          .outputOptions(['-qscale:v 50'])
+          .save(input.outPath);
+      });
     };
+  }
+
+  public static isHDR(stream: FfprobeStream): boolean {
+    return VideoRendererFactory.HDR_TRANSFERS.includes(stream.color_transfer);
+  }
+
+  /**
+   * Converts HDR (PQ or HLG, BT.2020) frames to SDR BT.709.
+   * Without it, the 10-bit HDR frame is only truncated to 8 bit and the thumbnail looks washed out.
+   */
+  public static getToneMappingFilters(stream: FfprobeStream): string[] {
+    const primaries = VideoRendererFactory.ZSCALE_PRIMARIES.includes(stream.color_primaries) ? stream.color_primaries : 'bt2020';
+    const matrix = VideoRendererFactory.ZSCALE_MATRICES.includes(stream.color_space) ? stream.color_space : 'bt2020nc';
+    const range = stream.color_range === 'pc' ? 'full' : 'limited';
+    return [
+      `zscale=tin=${stream.color_transfer}:pin=${primaries}:min=${matrix}:rin=${range}:t=linear:npl=${VideoRendererFactory.HDR_REFERENCE_WHITE}`,
+      'format=gbrpf32le',
+      'zscale=p=bt709',
+      // mobius keeps the diffuse range untouched and only compresses the highlights
+      'tonemap=tonemap=mobius:desat=0',
+      'zscale=t=bt709:m=bt709:r=tv',
+      'format=yuv420p',
+    ];
+  }
+
+  private static getScaleFilter(input: MediaRendererInput, width: number, height: number): string {
+    if (input.makeSquare === false) {
+      return width < height
+        ? `scale=w=${Math.min(input.size, width)}:h=trunc(ow/a/2)*2`
+        : `scale=w=trunc(oh*a/2)*2:h=${Math.min(input.size, height)}`;
+    }
+    return `scale=w=${input.size}:h=${input.size}`;
+  }
+
+  private static isToneMappingSupported(ffmpeg: (path?: string) => FfmpegCommand): Promise<boolean> {
+    if (VideoRendererFactory.toneMappingSupported === null) {
+      VideoRendererFactory.toneMappingSupported = new Promise<boolean>((resolve): void => {
+        ffmpeg().availableFilters((err, filters): void => {
+          resolve(!err && !!filters?.zscale && !!filters?.tonemap);
+        });
+      });
+    }
+    return VideoRendererFactory.toneMappingSupported;
   }
 }
 

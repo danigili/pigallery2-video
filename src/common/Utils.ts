@@ -493,15 +493,30 @@ export class Utils {
     return ret;
   }
 
-  public static xmpExifGpsCoordinateToDecimalDegrees(text: string): number {
-    if (!text) {
+  /**
+   * Parses an XMP GPS coordinate.
+   * Supports the XMP spec formats "DDD,MM.mmk" and "DDD,MM,SSk"
+   * and decimal degrees ("-3.70198" or "3.70198" with a separate W ref) that some tools write.
+   * @param text coordinate
+   * @param ref direction (N, S, E, W) from the GPSLatitudeRef/GPSLongitudeRef tag. Used if the coordinate has none.
+   */
+  public static xmpExifGpsCoordinateToDecimalDegrees(text: string | number, ref?: string): number {
+    if (text === undefined || text === null) {
       return undefined;
     }
-    const parts = text.match(/^([0-9]+),([0-9.]+)([EWNS])$/);
-    const degrees: number = parseInt(parts[1], 10);
-    const minutes: number = parseFloat(parts[2]);
-    const sign = (parts[3] === 'N' || parts[3] === 'E') ? 1 : -1;
-    return (sign * (degrees + (minutes / 60.0)));
+    const parts = String(text).trim().match(/^([+-]?[0-9.]+)(?:,([0-9.]+))?(?:,([0-9.]+))?\s*([EWNS])?$/i);
+    if (!parts) {
+      return undefined;
+    }
+    const value = Math.abs(parseFloat(parts[1])) +
+      (parseFloat(parts[2]) || 0) / 60.0 +
+      (parseFloat(parts[3]) || 0) / 3600.0;
+    if (isNaN(value)) {
+      return undefined;
+    }
+    const direction = (parts[4] || ref || '').toUpperCase();
+    const sign = (parts[1].startsWith('-') || direction === 'S' || direction === 'W') ? -1 : 1;
+    return sign * value;
   }
 
 

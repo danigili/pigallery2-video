@@ -463,7 +463,6 @@ export class ContentWrapperUtils {
         delete (m as PhotoDTO).metadata.caption;
         delete (m as PhotoDTO).metadata.cameraData;
         delete (m as PhotoDTO).metadata.faces;
-        delete (m as PhotoDTO).metadata.positionData;
         ContentWrapperUtils.mapify(cw, m, isSearchResult);
       }
       Utils.removeNullOrEmptyObj(m);

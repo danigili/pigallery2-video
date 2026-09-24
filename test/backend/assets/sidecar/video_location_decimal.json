@@ -1,0 +1,24 @@
+{
+  "size": {
+    "width": 80,
+    "height": 46
+  },
+  "bitRate": 184871,
+  "duration": 1000,
+  "creationDate": 1722607933000,
+  "creationDateOffset": "-03:00",
+  "fileSize": 23132,
+  "fps": 60000,
+  "keywords": [
+    "Obelisco"
+  ],
+  "positionData": {
+    "GPSData": {
+      "latitude": -34.603722,
+      "longitude": -58.381592
+    },
+    "city": "Buenos Aires",
+    "state": "Ciudad Autónoma de Buenos Aires",
+    "country": "Argentina"
+  }
+}

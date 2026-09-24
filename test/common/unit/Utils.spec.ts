@@ -59,6 +59,34 @@ describe('Utils', () => {
     expect(Utils.equalsFilter({a: 0}, {a: 0})).to.be.equal(true);
   });
 
+  describe('xmpExifGpsCoordinateToDecimalDegrees', () => {
+    const parse = (text: string | number, ref?: string) =>
+      parseFloat(Utils.xmpExifGpsCoordinateToDecimalDegrees(text, ref).toFixed(6));
+
+    it('should parse DDD,MM.mmk', () => {
+      expect(parse('50,5.3752490N')).to.be.equal(50.089587);
+      expect(parse('3,42.1188W')).to.be.equal(-3.70198);
+    });
+
+    it('should parse DDD,MM,SSk', () => {
+      expect(parse('40,25,3.07N')).to.be.equal(40.417519);
+      expect(parse('34,36,13.4S')).to.be.equal(-34.603722);
+    });
+
+    it('should parse decimal degrees with or without ref', () => {
+      expect(parse(40.41752)).to.be.equal(40.41752);
+      expect(parse('-3.70198')).to.be.equal(-3.70198);
+      expect(parse('3.70198', 'W')).to.be.equal(-3.70198);
+      expect(parse(34.603722, 'S')).to.be.equal(-34.603722);
+    });
+
+    it('should not fail on invalid input', () => {
+      expect(Utils.xmpExifGpsCoordinateToDecimalDegrees(undefined)).to.be.equal(undefined);
+      expect(Utils.xmpExifGpsCoordinateToDecimalDegrees('')).to.be.equal(undefined);
+      expect(Utils.xmpExifGpsCoordinateToDecimalDegrees('north')).to.be.equal(undefined);
+    });
+  });
+
   describe('sortableFilename', () => {
     it('should trim extensions', () => {
       expect(Utils.sortableFilename("10.jpg")).to.be.equal("10")

@@ -32,7 +32,6 @@ describe('ContentWrapper', () => {
         delete (m as PhotoDTO).metadata.cameraData;
         delete (m as PhotoDTO).metadata.keywords;
         delete (m as PhotoDTO).metadata.faces;
-        delete (m as PhotoDTO).metadata.positionData;
       }
       if (m.missingThumbnails === 0) {
         delete m.missingThumbnails;
@@ -63,6 +62,20 @@ describe('ContentWrapper', () => {
     const cwOrig = ContentWrapperUtils.build(parentOrig as ParentDirectoryDTO, null);
     const cw = ContentWrapperUtils.build(parent as ParentDirectoryDTO, null);
     expect(ContentWrapperUtils.unpack(ContentWrapperUtils.pack(cw))).to.deep.equals(cleanUpCW(cwOrig));
+  });
+
+  it('pack and unpack keeps position data of videos', () => {
+    const positionData = {
+      GPSData: {latitude: 40.41752, longitude: -3.70198},
+      city: 'Madrid',
+      state: 'Comunidad de Madrid',
+      country: 'España'
+    };
+    const parent = TestHelper.getDirectoryEntry();
+    TestHelper.getVideoEntry(parent).metadata.positionData = Utils.clone(positionData);
+    const cw = ContentWrapperUtils.build(parent as ParentDirectoryDTO, null);
+    const video = ContentWrapperUtils.unpack(ContentWrapperUtils.pack(cw)).directory.media[0] as VideoDTO;
+    expect((video as unknown as PhotoDTO).metadata.positionData).to.deep.equals(positionData);
   });
 
 

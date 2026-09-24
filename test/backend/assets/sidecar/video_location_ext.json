@@ -1,0 +1,25 @@
+{
+  "size": {
+    "width": 80,
+    "height": 46
+  },
+  "bitRate": 184871,
+  "duration": 1000,
+  "creationDate": 1718469005000,
+  "creationDateOffset": "+02:00",
+  "fileSize": 23132,
+  "fps": 60000,
+  "keywords": [
+    "Puerta del Sol",
+    "vacaciones"
+  ],
+  "positionData": {
+    "GPSData": {
+      "latitude": 40.417519,
+      "longitude": -3.701981
+    },
+    "city": "Madrid",
+    "state": "Comunidad de Madrid",
+    "country": "España"
+  }
+}

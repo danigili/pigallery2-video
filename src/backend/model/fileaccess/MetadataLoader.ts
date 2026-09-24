@@ -32,6 +32,21 @@ export class MetadataLoader {
     fileSize: 0,
   };
 
+  private static readonly EXIFR_OPTIONS: {[key: string]: boolean} = {
+    tiff: true,
+    xmp: true,
+    icc: false,
+    jfif: false, //not needed and not supported for png
+    ihdr: true,
+    iptc: true,
+    exif: true,
+    gps: true,
+    makerNote: true,
+    reviveValues: false, //don't convert timestamps
+    translateValues: false, //don't translate orientation from numbers to strings etc.
+    mergeOutput: false //don't merge output, because things like Microsoft Rating (percent) and xmp.rating will be merged
+  };
+
   @ExtensionDecorator(e => e.gallery.MetadataLoader.loadVideoMetadata)
   public static async loadVideoMetadata(fullPath: string): Promise<VideoMetadata> {
     const metadata: VideoMetadata = {
@@ -146,38 +161,46 @@ export class MetadataLoader {
         Logger.silly(LOG_TAG, 'Error loading metadata for : ' + fullPath);
         Logger.silly(err);
       }
-      metadata.creationDate = metadata.creationDate || 0;
-
-      try {
-        // search for sidecar and merge metadata
-        const fullPathWithoutExt = path.join(path.parse(fullPath).dir, path.parse(fullPath).name);
-        const sidecarPaths = [
-          fullPath + '.xmp',
-          fullPath + '.XMP',
-          fullPathWithoutExt + '.xmp',
-          fullPathWithoutExt + '.XMP',
-        ];
-
-        for (const sidecarPath of sidecarPaths) {
-          if (fs.existsSync(sidecarPath)) {
-            const sidecarData: any = await exifr.sidecar(sidecarPath);
-            if (sidecarData !== undefined) {
-              // sidecar should not change the video dimension
-              MetadataLoader.mapMetadata(metadata, sidecarData, false);
-            }
-          }
-        }
-      } catch (err) {
-        Logger.silly(LOG_TAG, 'Error loading sidecar metadata for : ' + fullPath);
-        Logger.silly(err);
-      }
-
     } catch (err) {
       Logger.silly(LOG_TAG, 'Error loading metadata for : ' + fullPath);
       Logger.silly(err);
     }
 
+    // the sidecar is independent of the video file, so load it even if ffprobe failed
+    await MetadataLoader.loadSidecar(fullPath, metadata);
+    metadata.creationDate = metadata.creationDate || 0;
+
     return metadata;
+  }
+
+  /**
+   * Searches for an XMP sidecar and merges its metadata.
+   * Since side cars are loaded last, data loaded here overwrites embedded metadata (in Pigallery2, not in the actual files)
+   */
+  private static async loadSidecar(fullPath: string, metadata: PhotoMetadata | VideoMetadata): Promise<void> {
+    try {
+      const fullPathWithoutExt = path.join(path.parse(fullPath).dir, path.parse(fullPath).name);
+      const sidecarPaths = [
+        fullPath + '.xmp',
+        fullPath + '.XMP',
+        fullPathWithoutExt + '.xmp',
+        fullPathWithoutExt + '.XMP',
+      ];
+
+      for (const sidecarPath of sidecarPaths) {
+        if (fs.existsSync(sidecarPath)) {
+          const sidecarData: any = await exifr.sidecar(sidecarPath, MetadataLoader.EXIFR_OPTIONS);
+          if (sidecarData !== undefined) {
+            // sidecar should not change the media dimension
+            MetadataLoader.mapMetadata(metadata, sidecarData, false);
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      Logger.silly(LOG_TAG, 'Error loading sidecar metadata for : ' + fullPath);
+      Logger.silly(err);
+    }
   }
 
   @ExtensionDecorator(e => e.gallery.MetadataLoader.loadPhotoMetadata)
@@ -186,20 +209,6 @@ export class MetadataLoader {
       size: {width: 0, height: 0},
       creationDate: 0,
       fileSize: 0,
-    };
-    const exifrOptions: {[key: string]: boolean} = {
-      tiff: true,
-      xmp: true,
-      icc: false,
-      jfif: false, //not needed and not supported for png
-      ihdr: true,
-      iptc: true,
-      exif: true,
-      gps: true,
-      makerNote: true,
-      reviveValues: false, //don't convert timestamps
-      translateValues: false, //don't translate orientation from numbers to strings etc.
-      mergeOutput: false //don't merge output, because things like Microsoft Rating (percent) and xmp.rating will be merged
     };
     try {
       try {
@@ -227,7 +236,7 @@ export class MetadataLoader {
 
       try {
         try {
-          const exif = await exifr.parse(fullPath, exifrOptions);
+          const exif = await exifr.parse(fullPath, MetadataLoader.EXIFR_OPTIONS);
           MetadataLoader.mapMetadata(metadata, exif, true);
           if (exif?.makerNote) {
             const contentId = MetadataLoader.parseAppleMakerNoteContentId(exif.makerNote);
@@ -244,31 +253,7 @@ export class MetadataLoader {
           }
         }
 
-        try {
-          // search for sidecar and merge metadata
-          const fullPathWithoutExt = path.join(path.parse(fullPath).dir, path.parse(fullPath).name);
-          const sidecarPaths = [
-            fullPath + '.xmp',
-            fullPath + '.XMP',
-            fullPathWithoutExt + '.xmp',
-            fullPathWithoutExt + '.XMP',
-          ];
-
-          for (const sidecarPath of sidecarPaths) {
-            if (fs.existsSync(sidecarPath)) {
-              const sidecarData: any = await exifr.sidecar(sidecarPath, exifrOptions);
-              if (sidecarData !== undefined) {
-                //note that since side cars are loaded last, data loaded here overwrites embedded metadata (in Pigallery2, not in the actual files)
-                // sidecar should not change the image dimension
-                MetadataLoader.mapMetadata(metadata, sidecarData, false);
-                break;
-              }
-            }
-          }
-        } catch (err) {
-          Logger.silly(LOG_TAG, 'Error loading sidecar metadata for : ' + fullPath);
-          Logger.silly(err);
-        }
+        await MetadataLoader.loadSidecar(fullPath, metadata);
         if (!metadata.creationDate) {
           // creationDate can be negative, when it was created before epoch (1970)
           metadata.creationDate = 0;
@@ -481,16 +466,21 @@ export class MetadataLoader {
   private static mapGPS(metadata: PhotoMetadata, exif: any) {
     try {
       if (exif.gps || (exif.exif && exif.exif.GPSLatitude && exif.exif.GPSLongitude)) {
-        metadata.positionData = metadata.positionData || {};
-        metadata.positionData.GPSData = metadata.positionData.GPSData || {};
+        const longitude = Utils.isFloat32(exif.gps?.longitude) ? exif.gps.longitude : Utils.xmpExifGpsCoordinateToDecimalDegrees(exif.exif?.GPSLongitude, exif.exif?.GPSLongitudeRef);
+        const latitude = Utils.isFloat32(exif.gps?.latitude) ? exif.gps.latitude : Utils.xmpExifGpsCoordinateToDecimalDegrees(exif.exif?.GPSLatitude, exif.exif?.GPSLatitudeRef);
 
-        metadata.positionData.GPSData.longitude = Utils.isFloat32(exif.gps?.longitude) ? exif.gps.longitude : Utils.xmpExifGpsCoordinateToDecimalDegrees(exif.exif.GPSLongitude);
-        metadata.positionData.GPSData.latitude = Utils.isFloat32(exif.gps?.latitude) ? exif.gps.latitude : Utils.xmpExifGpsCoordinateToDecimalDegrees(exif.exif.GPSLatitude);
+        // do not drop a previously loaded (embedded) position for an unreadable one
+        if (longitude !== undefined || latitude !== undefined) {
+          metadata.positionData = metadata.positionData || {};
+          metadata.positionData.GPSData = metadata.positionData.GPSData || {};
+          metadata.positionData.GPSData.longitude = longitude;
+          metadata.positionData.GPSData.latitude = latitude;
+        }
 
-        if (metadata.positionData.GPSData.longitude !== undefined) {
+        if (metadata.positionData?.GPSData?.longitude !== undefined) {
           metadata.positionData.GPSData.longitude = parseFloat(metadata.positionData.GPSData.longitude.toFixed(6));
         }
-        if (metadata.positionData.GPSData.latitude !== undefined) {
+        if (metadata.positionData?.GPSData?.latitude !== undefined) {
           metadata.positionData.GPSData.latitude = parseFloat(metadata.positionData.GPSData.latitude.toFixed(6));
         }
       }
@@ -509,10 +499,23 @@ export class MetadataLoader {
   private static mapToponyms(metadata: PhotoMetadata, exif: any) {
     //Function to convert html code for special characters into their corresponding character (used in exif.photoshop-section)
 
+    // IPTC Extension location structure (xmp): where the media was created, or else what it shows
+    const extLocation = [exif.Iptc4xmpExt?.LocationCreated, exif.Iptc4xmpExt?.LocationShown]
+      .map((loc) => Array.isArray(loc) ? loc[0] : loc)
+      .find((loc) => loc && typeof loc === 'object');
+    const getExtText = (key: string): string => {
+      let value = extLocation?.[key];
+      if (value && typeof value === 'object') { // language alternative
+        value = value.value;
+      }
+      return value === undefined || value === null ? undefined : Utils.decodeHTMLChars(String(value));
+    };
+
     metadata.positionData = metadata.positionData || {};
-    metadata.positionData.country = Utils.asciiToUTF8(exif.iptc?.Country) || Utils.decodeHTMLChars(exif.photoshop?.Country);
-    metadata.positionData.state = Utils.asciiToUTF8(exif.iptc?.State) || Utils.decodeHTMLChars(exif.photoshop?.State);
-    metadata.positionData.city = Utils.asciiToUTF8(exif.iptc?.City) || Utils.decodeHTMLChars(exif.photoshop?.City);
+    // fall back to the already loaded value, so a sidecar without location does not remove the embedded one
+    metadata.positionData.country = Utils.asciiToUTF8(exif.iptc?.Country) || Utils.decodeHTMLChars(exif.photoshop?.Country) || getExtText('CountryName') || metadata.positionData.country;
+    metadata.positionData.state = Utils.asciiToUTF8(exif.iptc?.State) || Utils.decodeHTMLChars(exif.photoshop?.State) || getExtText('ProvinceState') || metadata.positionData.state;
+    metadata.positionData.city = Utils.asciiToUTF8(exif.iptc?.City) || Utils.decodeHTMLChars(exif.photoshop?.City) || getExtText('City') || metadata.positionData.city;
     if (metadata.positionData) {
       Utils.removeNullOrEmptyObj(metadata.positionData);
       if (Object.keys(metadata.positionData).length === 0) {
