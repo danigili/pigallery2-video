@@ -356,4 +356,53 @@ describe('GalleryLightboxComponent - Slideshow Tests', () => {
     // Act & Assert
     expect(component.NexGridMedia).toBe(photoComponents[0].gridMedia);
   });
+
+  describe('landscape fullscreen', () => {
+    let fullScreenService: FullScreenService;
+    let touchDevice: boolean;
+    let orientation: string;
+
+    beforeEach(() => {
+      fullScreenService = TestBed.inject(FullScreenService);
+      spyOn(fullScreenService, 'showFullScreen');
+      spyOn(fullScreenService, 'exitFullScreen');
+      touchDevice = true;
+      orientation = 'portrait-primary';
+      spyOn(window, 'matchMedia').and.callFake((query: string) =>
+        ({matches: query === '(pointer: coarse)' ? touchDevice : orientation.startsWith('landscape')}) as MediaQueryList);
+      spyOnProperty(Object.getPrototypeOf(screen.orientation), 'type', 'get').and.callFake(() => orientation);
+      component.status = LightboxStates.Open;
+    });
+
+    it('should go fullscreen when a touch device is rotated to landscape and leave it in portrait', () => {
+      orientation = 'landscape-primary';
+      component.onOrientationChange();
+      expect(fullScreenService.showFullScreen).toHaveBeenCalledTimes(1);
+
+      orientation = 'portrait-primary';
+      component.onOrientationChange();
+      expect(fullScreenService.exitFullScreen).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not go fullscreen on devices without touch screen', () => {
+      touchDevice = false;
+      orientation = 'landscape-primary';
+      component.onOrientationChange();
+      expect(fullScreenService.showFullScreen).not.toHaveBeenCalled();
+    });
+
+    it('should not go fullscreen when the lightbox is closed', () => {
+      component.status = LightboxStates.Closed;
+      orientation = 'landscape-primary';
+      component.onOrientationChange();
+      expect(fullScreenService.showFullScreen).not.toHaveBeenCalled();
+    });
+
+    it('should keep the fullscreen that was set with the button in portrait', () => {
+      component.toggleFullscreen();
+      orientation = 'portrait-primary';
+      component.onOrientationChange();
+      expect(fullScreenService.exitFullScreen).not.toHaveBeenCalled();
+    });
+  });
 });

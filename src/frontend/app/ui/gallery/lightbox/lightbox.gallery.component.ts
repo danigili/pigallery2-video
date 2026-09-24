@@ -70,6 +70,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   private iPvisibilityTimer: number = null;
   private visibilityTimer: number = null;
   private delayedMediaShow: string = null;
+  // true if the lightbox entered fullscreen on its own (touch device in landscape), not with the button
+  private autoFullScreen = false;
   private activePhotoId: number = null;
   private gridPhotoQL: QueryList<GalleryPhotoComponent>;
   private subscription: {
@@ -116,6 +118,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
   }
 
   public toggleFullscreen(): void {
+    this.autoFullScreen = false;
     if (this.fullScreenService.isFullScreenEnabled()) {
       this.fullScreenService.exitFullScreen();
     } else {
@@ -221,6 +224,42 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     }
   }
 
+  // Browsers only allow going fullscreen without a tap from within the orientation change event
+  @HostListener('window:orientationchange')
+  onOrientationChange(): void {
+    if (!this.isVisible() || this.status === LightboxStates.Closing) {
+      return;
+    }
+    if (GalleryLightboxComponent.isLandscape()) {
+      this.enterLandscapeFullScreen();
+    } else if (this.autoFullScreen) {
+      this.autoFullScreen = false;
+      this.fullScreenService.exitFullScreen();
+    }
+  }
+
+  private static isLandscape(): boolean {
+    // screen.orientation is already up-to-date in the orientationchange event, the viewport size might not be
+    if (screen.orientation?.type) {
+      return screen.orientation.type.startsWith('landscape');
+    }
+    return window.matchMedia('(orientation: landscape)').matches;
+  }
+
+  /**
+   * Like native gallery apps, go fullscreen in landscape on phones and tablets,
+   * so the status and navigation bars do not shrink the media.
+   */
+  private enterLandscapeFullScreen(): void {
+    if (!window.matchMedia('(pointer: coarse)').matches ||
+      !GalleryLightboxComponent.isLandscape() ||
+      this.fullScreenService.isFullScreenEnabled()) {
+      return;
+    }
+    this.autoFullScreen = true;
+    this.fullScreenService.showFullScreen(this.root.nativeElement);
+  }
+
   public nextImage(): void {
     if (this.activePhotoId + 1 < this.gridPhotoQL.length) {
       this.navigateToPhoto(this.activePhotoId + 1);
@@ -270,6 +309,8 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
     this.blackCanvasOpacity = 1.0;
     this.showPhoto(this.gridPhotoQL.toArray().indexOf(selectedPhoto), false);
     this.piTitleService.setMediaTitle(selectedPhoto.gridMedia);
+    // opened by a tap, so fullscreen is allowed if the device is already in landscape
+    this.enterLandscapeFullScreen();
   }
 
   public hide(): void {
@@ -502,6 +543,7 @@ export class GalleryLightboxComponent implements OnDestroy, OnInit {
       this.controls.resetZoom();
     }
     this.status = LightboxStates.Closing;
+    this.autoFullScreen = false;
     this.fullScreenService.exitFullScreen();
 
     this.stopSlideShow();
