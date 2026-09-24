@@ -52,7 +52,7 @@
           class="rounded"
           [class.rounded-start-0]="ShowMarkDown"
           *ngIf="ShowMap"
-          [photos]="directoryContent?.mediaGroups | photosOnly"
+          [photos]="directoryContent?.mediaGroups | photosAndVideos"
           [gpxFiles]="directoryContent?.metaFile | gpxFiles"></app-gallery-map>
       </div>
       <app-gallery-grid [mediaGroups]="directoryContent?.mediaGroups"
