@@ -150,7 +150,7 @@
          [style.left.px]="photoFrameDim.width/2 + drag.x"
          [style.width.px]="faceContainerDim.width* zoom"
          [style.height.px]="faceContainerDim.height* zoom"
-         *ngIf="facesEnabled && activePhoto && activePhoto.gridMedia.Photo.metadata.faces && activePhoto.gridMedia.Photo.metadata.faces.length > 0">
+         *ngIf="facesEnabled && activePhoto && activePhoto.gridMedia.isPhoto() && activePhoto.gridMedia.Photo.metadata.faces && activePhoto.gridMedia.Photo.metadata.faces.length > 0">
       <ng-container *ngIf="searchEnabled">
         <a
           class="face"

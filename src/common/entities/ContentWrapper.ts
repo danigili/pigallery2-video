@@ -445,24 +445,22 @@ export class ContentWrapperUtils {
         }
       }
 
+      // compress faces (videos can also have faces, e.g. from XMP sidecars)
+      if ((m as PhotoDTO).metadata.faces) {
+        for (let j = 0; j < (m as PhotoDTO).metadata.faces.length; ++j) {
+          const f = (m as PhotoDTO).metadata.faces[j];
+          // @ts-ignore
+          f['b'] = [f.box.top, f.box.left, f.box.height, f.box.width];
+          delete f.box;
+        }
+      }
       if (MediaDTOUtils.isPhoto(m)) {
         delete (m as VideoDTO).metadata.bitRate;
         delete (m as VideoDTO).metadata.duration;
-
-        // compress faces
-        if ((m as PhotoDTO).metadata.faces) {
-          for (let j = 0; j < (m as PhotoDTO).metadata.faces.length; ++j) {
-            const f = (m as PhotoDTO).metadata.faces[j];
-            // @ts-ignore
-            f['b'] = [f.box.top, f.box.left, f.box.height, f.box.width];
-            delete f.box;
-          }
-        }
         ContentWrapperUtils.mapify(cw, m, isSearchResult);
       } else if (MediaDTOUtils.isVideo(m)) {
         delete (m as PhotoDTO).metadata.caption;
         delete (m as PhotoDTO).metadata.cameraData;
-        delete (m as PhotoDTO).metadata.faces;
         ContentWrapperUtils.mapify(cw, m, isSearchResult);
       }
       Utils.removeNullOrEmptyObj(m);

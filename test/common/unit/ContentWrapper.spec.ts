@@ -31,7 +31,6 @@ describe('ContentWrapper', () => {
         delete (m as PhotoDTO).metadata.caption;
         delete (m as PhotoDTO).metadata.cameraData;
         delete (m as PhotoDTO).metadata.keywords;
-        delete (m as PhotoDTO).metadata.faces;
       }
       if (m.missingThumbnails === 0) {
         delete m.missingThumbnails;
@@ -76,6 +75,19 @@ describe('ContentWrapper', () => {
     const cw = ContentWrapperUtils.build(parent as ParentDirectoryDTO, null);
     const video = ContentWrapperUtils.unpack(ContentWrapperUtils.pack(cw)).directory.media[0] as VideoDTO;
     expect((video as unknown as PhotoDTO).metadata.positionData).to.deep.equals(positionData);
+  });
+
+
+  it('pack and unpack keeps faces of videos', () => {
+    const faces = [
+      {name: 'Nil', box: {left: 0, top: 0, width: 1920, height: 1080}},
+      {name: 'Dani', box: {left: 10, top: 20, width: 30, height: 40}}
+    ];
+    const parent = TestHelper.getDirectoryEntry();
+    (TestHelper.getVideoEntry(parent) as unknown as PhotoDTO).metadata.faces = Utils.clone(faces);
+    const cw = ContentWrapperUtils.build(parent as ParentDirectoryDTO, null);
+    const video = ContentWrapperUtils.unpack(ContentWrapperUtils.pack(cw)).directory.media[0];
+    expect((video as unknown as PhotoDTO).metadata.faces).to.deep.equals(faces);
   });
 
 
