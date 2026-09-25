@@ -4,6 +4,7 @@ import {
   DatePatternSearch,
   DistanceSearch,
   ListSearchQueryTypes,
+  MediaTypeSearch,
   OrientationSearch,
   RangeSearch,
   RangeSearchQueryTypes,
@@ -105,6 +106,10 @@ export class GallerySearchQueryEntryComponent
 
   get AsOrientationQuery(): OrientationSearch {
     return this.queryEntry as OrientationSearch;
+  }
+
+  get AsMediaTypeQuery(): MediaTypeSearch {
+    return this.queryEntry as MediaTypeSearch;
   }
 
   get AsDatePatternQuery(): DatePatternSearch {
@@ -245,6 +250,12 @@ export class GallerySearchQueryEntryComponent
       this.AsOrientationQuery.landscape = true;
     } else {
       delete this.AsOrientationQuery.landscape;
+    }
+
+    if (this.queryEntry.type === SearchQueryTypes.media_type) {
+      this.AsMediaTypeQuery.video = true;
+    } else {
+      delete this.AsMediaTypeQuery.video;
     }
 
 

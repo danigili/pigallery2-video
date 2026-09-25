@@ -3,6 +3,7 @@ import {
   DatePatternFrequency,
   DatePatternSearch,
   DistanceSearch,
+  MediaTypeSearch,
   NegatableSearchQuery,
   OrientationSearch,
   ORSearchQuery,
@@ -30,6 +31,9 @@ export interface QueryKeywords {
   portrait: string;
   landscape: string;
   orientation: string;
+  mediaType: string;
+  photo: string;
+  video: string;
   kmFrom: string;
   resolution: string;
   rating: string;
@@ -63,6 +67,9 @@ export const defaultQueryKeywords: QueryKeywords = {
   orientation: 'orientation',
   landscape: 'landscape',
   portrait: 'portrait',
+  mediaType: 'type',
+  photo: 'photo',
+  video: 'video',
 
 
   years_ago: '%d-years-ago',
@@ -446,6 +453,15 @@ export class SearchQueryParser {
       } as OrientationSearch;
     }
 
+    if (str.startsWith(this.keywords.mediaType + ':')) {
+      return {
+        type: SearchQueryTypes.media_type,
+        video:
+          str.slice((this.keywords.mediaType + ':').length) ===
+          this.keywords.video,
+      } as MediaTypeSearch;
+    }
+
 
     if (kwStartsWith(str, this.keywords.sameDay) ||
       new RegExp('^' + SearchQueryParser.humanToRegexpStr(this.keywords.lastNDays) + '!?:').test(str)) {
@@ -680,6 +696,14 @@ export class SearchQueryParser {
           ((query as OrientationSearch).landscape
             ? this.keywords.landscape
             : this.keywords.portrait)
+        );
+      case SearchQueryTypes.media_type:
+        return (
+          this.keywords.mediaType +
+          ':' +
+          ((query as MediaTypeSearch).video
+            ? this.keywords.video
+            : this.keywords.photo)
         );
       case SearchQueryTypes.date_pattern: {
         const q = (query as DatePatternSearch);

@@ -9,6 +9,7 @@ import {
   DatePatternSearch,
   DateSearch,
   DistanceSearch,
+  MediaTypeSearch,
   OrientationSearch,
   ORSearchQuery,
   PersonCountSearch,
@@ -1006,6 +1007,52 @@ describe('SearchManager', (sqlHelper: DBTestHelper) => {
       } as SearchResultDTO));
 
 
+    });
+
+    it('should search media type', async () => {
+      const sm = new SearchManager();
+
+      let query = {
+        video: true,
+        type: SearchQueryTypes.media_type
+      } as MediaTypeSearch;
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [v],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      query = ({
+        video: false,
+        type: SearchQueryTypes.media_type
+      } as MediaTypeSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p, p2, pFaceLess, p4],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
+
+      query = ({
+        type: SearchQueryTypes.AND,
+        list: [
+          {video: false, type: SearchQueryTypes.media_type} as MediaTypeSearch,
+          {landscape: false, type: SearchQueryTypes.orientation} as OrientationSearch
+        ]
+      } as unknown as MediaTypeSearch);
+      expect(Utils.clone(await sm.search(DBTestHelper.defaultSession, query)))
+        .to.deep.equalInAnyOrder(removeDir({
+        searchQuery: query,
+        directories: [],
+        media: [p, p2, p4],
+        metaFile: [],
+        resultOverflow: false
+      } as SearchResultDTO));
     });
 
     it('should search distance', async () => {

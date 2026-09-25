@@ -5,6 +5,7 @@ import {DirectoryContent} from '../contentLoader.service';
 import {map, switchMap} from 'rxjs/operators';
 import {Config} from '../../../../../common/config/public/Config';
 import {Utils} from '../../../../../common/Utils';
+import {MediaDTOUtils} from '../../../../../common/entities/MediaDTO';
 
 export enum FilterRenderType {
   enum = 1,
@@ -121,6 +122,28 @@ export class FilterService {
       mapFn: (m: PhotoDTO): string => m.metadata.cameraData?.focalLength ? `${m.metadata.cameraData?.focalLength} mm` : undefined,
       renderType: FilterRenderType.enum,
     },
+    {
+      name: $localize`Media type`,
+      mapFn: (m: PhotoDTO): string => MediaDTOUtils.isVideo(m) ? $localize`Video` : $localize`Photo`,
+      renderType: FilterRenderType.enum,
+    },
+    {
+      name: $localize`Orientation`,
+      mapFn: (m: PhotoDTO): string => {
+        const size = m.metadata.size;
+        if (!size?.width || !size?.height) {
+          return undefined;
+        }
+        if (size.width > size.height) {
+          return $localize`Landscape`;
+        }
+        if (size.width < size.height) {
+          return $localize`Portrait`;
+        }
+        return $localize`Square`;
+      },
+      renderType: FilterRenderType.enum,
+    },
   ];
 
   public readonly activeFilters = new BehaviorSubject({
@@ -147,6 +170,14 @@ export class FilterService {
       },
       {
         filter: this.AVAILABLE_FILTERS[4],
+        options: [],
+      },
+      {
+        filter: this.AVAILABLE_FILTERS[14],
+        options: [],
+      },
+      {
+        filter: this.AVAILABLE_FILTERS[15],
         options: [],
       },
     ],

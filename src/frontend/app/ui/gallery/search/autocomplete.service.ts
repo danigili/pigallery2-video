@@ -24,7 +24,12 @@ export class AutoCompleteService {
         (k) =>
           k !== defaultQueryKeywords.or &&
           k !== defaultQueryKeywords.and &&
+          k !== defaultQueryKeywords.orientation &&
           k !== defaultQueryKeywords.portrait &&
+          k !== defaultQueryKeywords.landscape &&
+          k !== defaultQueryKeywords.mediaType &&
+          k !== defaultQueryKeywords.photo &&
+          k !== defaultQueryKeywords.video &&
           k !== defaultQueryKeywords.kmFrom &&
           k !== defaultQueryKeywords.NSomeOf &&
           k !== defaultQueryKeywords.rating &&
@@ -40,6 +45,11 @@ export class AutoCompleteService {
           k !== defaultQueryKeywords.lastNDays
       )
       .map((k) => k + ':');
+
+    this.keywords.push(defaultQueryKeywords.orientation + ':' + defaultQueryKeywords.landscape);
+    this.keywords.push(defaultQueryKeywords.orientation + ':' + defaultQueryKeywords.portrait);
+    this.keywords.push(defaultQueryKeywords.mediaType + ':' + defaultQueryKeywords.video);
+    this.keywords.push(defaultQueryKeywords.mediaType + ':' + defaultQueryKeywords.photo);
 
     this.keywords.push(defaultQueryKeywords.and);
     this.keywords.push(defaultQueryKeywords.or);

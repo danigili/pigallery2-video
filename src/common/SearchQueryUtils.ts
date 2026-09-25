@@ -1,4 +1,5 @@
 import {
+  MediaTypeSearch,
   NegatableSearchQuery,
   OrientationSearch,
   RangeSearchQueryTypes,
@@ -31,6 +32,9 @@ export const SearchQueryUtils = {
         return query;
       case SearchQueryTypes.orientation:
         (query as OrientationSearch).landscape = !(query as OrientationSearch).landscape;
+        return query;
+      case SearchQueryTypes.media_type:
+        (query as MediaTypeSearch).video = !(query as MediaTypeSearch).video;
         return query;
       case SearchQueryTypes.date:
       case SearchQueryTypes.rating:

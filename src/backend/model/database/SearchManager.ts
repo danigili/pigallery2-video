@@ -3,6 +3,7 @@ import {AutoCompleteItem} from '../../../common/entities/AutoCompleteItem';
 import {SearchResultDTO} from '../../../common/entities/SearchResultDTO';
 import {SQLConnection} from './SQLConnection';
 import {PhotoEntity} from './enitites/PhotoEntity';
+import {VideoEntity} from './enitites/VideoEntity';
 import {DirectoryEntity} from './enitites/DirectoryEntity';
 import {MediaEntity} from './enitites/MediaEntity';
 import {PersonEntry} from './enitites/person/PersonEntry';
@@ -14,6 +15,7 @@ import {
   DatePatternSearch,
   DistanceSearch,
   NegatableSearchQuery,
+  MediaTypeSearch,
   OrientationSearch,
   ORSearchQuery,
   RangeSearch,
@@ -709,6 +711,19 @@ export class SearchManager {
           }
           return q;
         });
+
+      case SearchQueryTypes.media_type: {
+        if (directoryOnly) {
+          throw new Error('not supported in directoryOnly mode');
+        }
+        const textParam: { [key: string]: string } = {};
+        // the type column is the table inheritance discriminator, it holds the entity class name
+        textParam['mediaType' + queryId] = (query as MediaTypeSearch).video ? VideoEntity.name : PhotoEntity.name;
+        return new Brackets((q): unknown => {
+          q.where(`media.type = :mediaType${queryId}`, textParam);
+          return q;
+        });
+      }
 
       case SearchQueryTypes.date_pattern: {
         if (directoryOnly) {

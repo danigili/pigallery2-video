@@ -110,6 +110,7 @@ EnumTranslations[SearchQueryTypes[SearchQueryTypes.directory]] = $localize`Direc
 EnumTranslations[SearchQueryTypes[SearchQueryTypes.file_name]] = $localize`File name`;
 EnumTranslations[SearchQueryTypes[SearchQueryTypes.caption]] = $localize`Caption`;
 EnumTranslations[SearchQueryTypes[SearchQueryTypes.orientation]] = $localize`Orientation`;
+EnumTranslations[SearchQueryTypes[SearchQueryTypes.media_type]] = $localize`Media type`;
 EnumTranslations[SearchQueryTypes[SearchQueryTypes.date_pattern]] = $localize`Date pattern`;
 EnumTranslations[SearchQueryTypes[SearchQueryTypes.position]] = $localize`Position`;
 EnumTranslations[SearchQueryTypes[SearchQueryTypes.person]] = $localize`Person`;

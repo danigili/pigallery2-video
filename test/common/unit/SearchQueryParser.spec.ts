@@ -5,6 +5,7 @@ import {
   DatePatternSearch,
   DateSearch,
   DistanceSearch,
+  MediaTypeSearch,
   OrientationSearch,
   ORSearchQuery,
   PersonCountSearch,
@@ -429,6 +430,13 @@ describe('SearchQueryParser', () => {
     it('OrientationSearch search', () => {
       check({type: SearchQueryTypes.orientation, landscape: true} as OrientationSearch);
       check({type: SearchQueryTypes.orientation, landscape: false} as OrientationSearch);
+    });
+    it('MediaTypeSearch search', () => {
+      check({type: SearchQueryTypes.media_type, video: true} as MediaTypeSearch);
+      check({type: SearchQueryTypes.media_type, video: false} as MediaTypeSearch);
+      const parser = new SearchQueryParser(defaultQueryKeywords);
+      expect(parser.parse('type:video')).to.deep.equals({type: SearchQueryTypes.media_type, video: true});
+      expect(parser.parse('type:photo')).to.deep.equals({type: SearchQueryTypes.media_type, video: false});
     });
     it('Date patter search', () => {
       for (let i = 0; i <= 10; ++i) {

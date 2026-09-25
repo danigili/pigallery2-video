@@ -238,6 +238,20 @@
           </select>
         </div>
       </div>
+      <div *ngSwitchCase="SearchQueryTypes.media_type" class="col-10 col-lg d-flex">
+        <div class="input-group col-md-6">
+          <select [id]="'media-type-select'+id"
+                  [name]="'media-type-select'+id"
+                  class="form-select rounded-2"
+                  [(ngModel)]="AsMediaTypeQuery.video"
+                  (ngModelChange)="onChange()"
+                  title="Media type"
+                  required>
+            <option [ngValue]="false" i18n>Photo</option>
+            <option [ngValue]="true" i18n>Video</option>
+          </select>
+        </div>
+      </div>
       <div *ngSwitchCase="SearchQueryTypes.date_pattern" class="col-10 col-lg d-flex">
 
         <div class="row">

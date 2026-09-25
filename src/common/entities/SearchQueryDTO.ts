@@ -15,6 +15,7 @@ export enum SearchQueryTypes {
 
   distance = 50,
   orientation,
+  media_type,
 
 
   date_pattern = 60,
@@ -56,6 +57,7 @@ export const RangeSearchQueryTypes = [
 export const MetadataSearchQueryTypes = [
   SearchQueryTypes.distance,
   SearchQueryTypes.orientation,
+  SearchQueryTypes.media_type,
 ]
   .concat(RangeSearchQueryTypes)
   .concat(TextSearchQueryTypes);
@@ -153,6 +155,11 @@ export interface ResolutionSearch extends RangeSearch {
 export interface OrientationSearch {
   type: SearchQueryTypes.orientation;
   landscape: boolean;
+}
+
+export interface MediaTypeSearch {
+  type: SearchQueryTypes.media_type;
+  video: boolean; // true: only videos, false: only photos
 }
 
 export enum DatePatternFrequency {
